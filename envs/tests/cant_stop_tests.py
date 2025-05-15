@@ -129,5 +129,17 @@ class CantStopEnvTests(unittest.TestCase):
                                                  ProgressAction(-1, 9),
                                                  ProgressAction(-1, 6)}))
         self.assertTrue(state.is_well_formed())
+
+class CantStopVisualisationTests(unittest.TestCase):
+    def test_simulation(self):
+        env = CantStopEnv(render_mode="human")
+        state, _ = env.reset(options={"start_base": True})
+        for i in range(20000):
+            action = random.choice(list(state.current_action))
+            next_state, reward, terminated, truncated, info = env.step(action)
+            state = next_state.copy()
+            if terminated:
+                print("done")
+                break
 if __name__ == '__main__':
     unittest.main()

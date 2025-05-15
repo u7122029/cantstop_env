@@ -154,13 +154,13 @@ class Board:
         return s
 
 class CantStopEnv(gym.Env):
-    metadata = {"render_modes": {"human", "rgb_array"}, "render_fps": 4}
-    def __init__(self, render_mode=None, render_fps=60):
+    metadata = {"render_modes": {"human", "rgb_array"}, "render_fps": 10}
+    def __init__(self, render_mode=None):
         self._state = None
         self.observation_space: CantStopObservation = CantStopObservation()
         self.action_space = spaces.Discrete(77)
-        self.render_fps = render_fps
-        if render_mode not in self.metadata["render_modes"]:
+        self.render_fps = self.metadata["render_fps"]
+        if render_mode is not None and render_mode not in self.metadata["render_modes"]:
             raise ValueError(f"render_mode must be in {self.metadata['render_modes']}, of which {render_mode} is not.")
         self.render_mode = render_mode
 
@@ -176,7 +176,10 @@ class CantStopEnv(gym.Env):
               seed: int | None = None,
               options: dict[str, Any] | None = None) -> tuple[CantStopState, dict[str, Any]]:
         super().reset(seed=seed, options=options)
-        self._state = self.observation_space.sample()
+        if isinstance(options, dict) and options.get("start_base", False):
+            self._state = CantStopState(np.array([3,5,7,9,11,13,11,9,7,5,3]), np.array([3,5,7,9,11,13,11,9,7,5,3]), StopContinueChoice())
+        else:
+            self._state = self.observation_space.sample()
         if self.render_mode == "human":
             self._render_frame()
         return self._state, {}
@@ -274,14 +277,20 @@ class CantStopEnv(gym.Env):
         if isinstance(self._state.current_action, StopContinueChoice):
             if action == StopContinueAction.CONTINUE:
                 reward = self._state.perform_continue()
+                if self.render_mode == "human":
+                    self._render_frame()
                 return self._state, reward, False, False, {}
 
             elif action == StopContinueAction.STOP:
                 reward, completed = self._state.perform_stop()
+                if self.render_mode == "human":
+                    self._render_frame()
                 return self._state, reward, completed, False, {}
 
         elif isinstance(self._state.current_action, ProgressActionSet):
             self._state.perform_progression(action)
+            if self.render_mode == "human":
+                self._render_frame()
             return self._state, 0, False, False, {}
 
         raise ValueError(f"Bad step inputted.")
