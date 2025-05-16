@@ -5,7 +5,7 @@ import gymnasium as gym
 import numpy as np
 import pygame
 from gymnasium import spaces
-from .cant_stop_utils import StopContinueAction, ProgressAction, CantStopActionType, CantStopState, CantStopAction, \
+from .cant_stop_utils import StopContinueAction, CantStopState, CantStopAction, \
     StopContinueChoice, ProgressActionSet
 
 
@@ -84,79 +84,10 @@ class CantStopObservation(spaces.Space):
         return CantStopState(saved_steps_remaining, active_steps_remaining, current_action_selection)
 
 
-class BoardColumnState(Enum):
-    EMPTY = 0
-    SAVED = 1
-    PROGRESS = 2
-
-    def __str__(self):
-        lst = ["_", "X", "O"]
-        return lst[self.value]
-
-    def get_color(self):
-        lst = ["gray", "black", "green"]
-        return lst[self.value]
-
-class BoardColumn:
-    def __init__(self, size, saved_steps_left=None, new_steps_left=None):
-        self.size = size
-        if saved_steps_left is None:
-            saved_steps_left = self.size - 1
-
-        if new_steps_left is None:
-            new_steps_left = saved_steps_left
-
-        self.saved_steps_left = saved_steps_left
-        self.new_steps_left = new_steps_left
-
-    def advance(self):
-        self.new_steps_left -= 1
-        assert self.new_steps_left >= 0, "Advancing further should be impossible!"
-
-    def stop(self):
-        self.saved_steps_left = self.new_steps_left
-
-    def __call__(self):
-        num_saved = self.size - self.saved_steps_left
-        num_new = self.size - self.new_steps_left - num_saved
-        num_empty = self.size - num_saved - num_new
-        return ([BoardColumnState.SAVED] * num_saved +
-                [BoardColumnState.PROGRESS] * num_new +
-                [BoardColumnState.EMPTY] * num_empty)
-
-    def __str__(self):
-        return "".join([str(x) for x in self()])
-
-class Board:
-    def __init__(self, column_sizes, saved_steps_remaining, active_steps_remaining):
-        self._column_sizes = column_sizes
-        self.progresses = [BoardColumn(column_size, saved, active)
-                           for column_size, saved, active in zip(column_sizes,
-                                                                 saved_steps_remaining,
-                                                                 active_steps_remaining)]
-
-    def advance(self, *cols):
-        for col in cols:
-            self.progresses[col].advance()
-
-    def stop(self):
-        for progress in self.progresses:
-            progress.stop()
-
-    def __call__(self):
-        return [x() for x in self.progresses]
-
-    def __str__(self):
-        s = "-----BOARD-----\n"
-        for progress in self.progresses:
-            s += str(progress)
-        s += "---------------"
-        return s
-
 class CantStopEnv(gym.Env):
     metadata = {"render_modes": {"human", "rgb_array"}, "render_fps": 10}
     def __init__(self, render_mode=None):
-        self._state = None
+        self._state: Optional[CantStopState] = None
         self.observation_space: CantStopObservation = CantStopObservation()
         self.action_space = spaces.Discrete(77)
         self.render_fps = self.metadata["render_fps"]
@@ -166,8 +97,7 @@ class CantStopEnv(gym.Env):
 
         self.window = None
         self.clock = None
-        self.board = None
-        self.window_size = (600, 600)
+        self.window_size = (600, 710)
         self.dice_combo_view_width_prop = 0.0
         self.play_history = None
 
@@ -177,7 +107,9 @@ class CantStopEnv(gym.Env):
               options: dict[str, Any] | None = None) -> tuple[CantStopState, dict[str, Any]]:
         super().reset(seed=seed, options=options)
         if isinstance(options, dict) and options.get("start_base", False):
-            self._state = CantStopState(np.array([3,5,7,9,11,13,11,9,7,5,3]), np.array([3,5,7,9,11,13,11,9,7,5,3]), StopContinueChoice())
+            self._state = CantStopState(np.array([3,5,7,9,11,13,11,9,7,5,3]),
+                                        np.array([3,5,7,9,11,13,11,9,7,5,3]),
+                                        StopContinueChoice())
         else:
             self._state = self.observation_space.sample()
         if self.render_mode == "human":
@@ -185,7 +117,7 @@ class CantStopEnv(gym.Env):
         return self._state, {}
 
     def render(self):
-        if self.render_mode in ("rgb_array",):
+        if self.render_mode == "rgb_array":
             return self._render_frame()
 
     def _render_frame(self):
@@ -198,9 +130,7 @@ class CantStopEnv(gym.Env):
             if self.clock is None:
                 self.clock = pygame.time.Clock()
 
-        self.board = Board(self.observation_space.column_sizes,
-                           self._state._saved_steps_remaining,
-                           self._state._active_steps_remaining)
+        colours = self._state.raw_squares()
 
         canvas = pygame.Surface(self.window_size)
         progress_canvas = pygame.Surface(((1-self.dice_combo_view_width_prop)*self.window_size[0], self.window_size[1]))
@@ -210,54 +140,16 @@ class CantStopEnv(gym.Env):
 
         base_width, base_height = progress_canvas.get_width(), progress_canvas.get_height()
         square_width = min(base_width, base_height) / len(self.observation_space.column_sizes)
-
-        board_data = self.board()
-        for col_idx, col in enumerate(board_data):
-            for square_idx, square_data in enumerate(col):
+        max_col_size = np.max(self._state.column_limits - 1)
+        for col_idx, col in enumerate(colours):
+            for square_idx, square_colour in enumerate(col):
                 pygame.draw.rect(progress_canvas,
-                                 square_data.get_color(),
+                                 square_colour,
                                  pygame.Rect(col_idx * square_width,
-                                             (len(board_data) - square_idx) * square_width,
+                                             (max_col_size - square_idx) * square_width,
                                              square_width,
                                              square_width),
                                  border_radius=5)
-
-        """pygame.draw.rect(progress_canvas)
-        pix_square_size = (self.window_size / self.size)  # The size of a single grid square in pixels
-
-        # First we draw the target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
-
-        # Finally, add some gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )"""
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window

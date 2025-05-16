@@ -18,6 +18,7 @@ class StopContinueAction(Enum):
     def __str__(self):
         return self.__repr__()
 
+
 class StopContinueChoice(set[StopContinueAction]):
     def __init__(self):
         super().__init__([StopContinueAction.STOP, StopContinueAction.CONTINUE])
@@ -149,7 +150,7 @@ class CantStopState:
                  saved_steps_remaining,
                  active_steps_remaining,
                  current_action: CantStopActionType):
-        self._column_limits = np.array([3,5,7,9,11,13,11,9,7,5,3]) + 1
+        self._column_limits = np.array([3,5,7,9,11,13,11,9,7,5,3])
         self._saved_steps_remaining: np.ndarray = saved_steps_remaining.astype(int)
         self._active_steps_remaining: np.ndarray = active_steps_remaining.astype(int)
         self._current_action: Optional[CantStopActionType] = current_action
@@ -171,7 +172,7 @@ class CantStopState:
         return self._current_action
 
     @property
-    def full_saved_cols(self):
+    def full_saved_cols(self) -> np.ndarray:
         return self._saved_steps_remaining == 0
 
     @property
@@ -316,6 +317,21 @@ class CantStopState:
                         return False
 
         return True
+
+    def raw_squares(self):
+        lst = []
+        fsc = self.full_saved_cols
+        num_black = self.column_limits - self.saved_steps_remaining
+        num_green = self.column_limits - self.active_steps_remaining - num_black
+        num_gray = self.active_steps_remaining
+        for i in range(len(self.column_limits)):
+            if fsc[i]:
+                x = ["blue"] * self.column_limits[i]
+            else:
+                x = ["black"] * num_black[i] + ["green"] * num_green[i] + ["gray"] * num_gray[i]
+            lst.append(x)
+        return lst
+
 
     def __repr__(self):
         headers = ["cols"] + list(range(0, 11))
