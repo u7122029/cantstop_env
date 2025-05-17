@@ -6,7 +6,7 @@ import numpy as np
 import pygame
 from gymnasium import spaces
 from .cant_stop_utils import StopContinueAction, CantStopState, CantStopAction, \
-    StopContinueChoice, ProgressActionSet
+    StopContinueChoice, ProgressActionSet, ProgressAction
 
 
 class PlayerState(Enum):
@@ -86,11 +86,17 @@ class CantStopObservation(spaces.Space):
 
 class CantStopEnv(gym.Env):
     metadata = {"render_modes": {"human", "rgb_array"}, "render_fps": 10}
-    def __init__(self, render_mode=None):
+    def __init__(self, max_turns=None, render_mode=None):
         self._state: Optional[CantStopState] = None
         self.observation_space: CantStopObservation = CantStopObservation()
         self.action_space = spaces.Discrete(77)
         self.render_fps = self.metadata["render_fps"]
+
+        if max_turns is None:
+            self.max_turns = 200
+        else:
+            self.max_turns = max_turns
+
         if render_mode is not None and render_mode not in self.metadata["render_modes"]:
             raise ValueError(f"render_mode must be in {self.metadata['render_modes']}, of which {render_mode} is not.")
         self.render_mode = render_mode
@@ -165,24 +171,89 @@ class CantStopEnv(gym.Env):
         else:  # rgb_array
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
 
+    # def step(self, action: CantStopAction) -> tuple[Optional[CantStopState], SupportsFloat, bool, bool, dict[str, Any]]:
+    #     reward = 0
+    #     if isinstance(self._state.current_action, StopContinueChoice):
+    #         if action == StopContinueAction.CONTINUE:
+    #             bust_reward = -np.sum(self._state.active_advances) * 3.0
+    #             busted = self._state.perform_continue()
+    #             if busted:
+    #                 reward = bust_reward
+    #
+    #             if self.render_mode == "human":
+    #                 self._render_frame()
+    #             return self._state, reward, False, False, {}
+    #
+    #         elif action == StopContinueAction.STOP:
+    #             reward += (np.sum(self._state.active_advances) * 2.0 +
+    #                        np.sum(self._state.full_active_cols.astype(float)) * (1 - self._state.num_turns / self.max_turns) * 20.0)
+    #             completed = self._state.perform_stop()
+    #
+    #             if completed:
+    #                 reward += 100 * (1 - self._state.num_turns / self.max_turns)
+    #
+    #             if self.render_mode == "human":
+    #                 self._render_frame()
+    #             return self._state, reward, completed, False, {}
+    #
+    #     elif isinstance(self._state.current_action, ProgressActionSet):
+    #         self._state.perform_progression(action)
+    #         reward += (1 / self._state.column_limits[action.larger] +
+    #                    (0 if action.smaller == -1 else 1 / self._state.column_limits[action.smaller]))
+    #         if self.render_mode == "human":
+    #             self._render_frame()
+    #         return self._state, reward, False, False, {}
+    #
+    #     raise ValueError(f"Bad step inputted.")
+
     def step(self, action: CantStopAction) -> tuple[Optional[CantStopState], SupportsFloat, bool, bool, dict[str, Any]]:
+        """
+        Apply an action in the Cant Stop game environment and return the resulting state, reward, and flags.
+        :param action:
+        :return: state: The updated game state.
+                 reward: The reward obtained from this step.
+                 terminated: Whether the game is over.
+                 truncated: Whether the game was truncated due to max turns.
+                 info: Additional info (empty in this case).
+        """
+        reward = 0.0
+        terminated = False
+
         if isinstance(self._state.current_action, StopContinueChoice):
             if action == StopContinueAction.CONTINUE:
-                reward = self._state.perform_continue()
-                if self.render_mode == "human":
-                    self._render_frame()
-                return self._state, reward, False, False, {}
+                # Potential penalty for busting
+                bust_penalty = -3.0 * np.sum(self._state.active_advances)
+                busted = self._state.perform_continue()
+                if busted:
+                    reward = bust_penalty
 
             elif action == StopContinueAction.STOP:
-                reward, completed = self._state.perform_stop()
-                if self.render_mode == "human":
-                    self._render_frame()
-                return self._state, reward, completed, False, {}
+                # Reward for securing progress
+                progress_reward = 2.0 * np.sum(self._state.active_advances)
+                completion_reward = (20.0 * np.sum(self._state.full_active_cols.astype(float)) *
+                                     (1 - self._state.num_turns / self.max_turns))
+                reward += progress_reward + completion_reward
+
+                completed = self._state.perform_stop()
+                if completed:
+                    reward += 100.0 * (1 - self._state.num_turns / self.max_turns)
+                    terminated = True  # game is over after 3 columns
+
+            else:
+                raise ValueError("Invalid Stop/Continue action.")
 
         elif isinstance(self._state.current_action, ProgressActionSet):
+            # Apply the chosen progression action
             self._state.perform_progression(action)
-            if self.render_mode == "human":
-                self._render_frame()
-            return self._state, 0, False, False, {}
 
-        raise ValueError(f"Bad step inputted.")
+            reward += 1.0 / self._state.column_limits[action.larger]
+            if action.smaller != -1:
+                reward += 1.0 / self._state.column_limits[action.smaller]
+
+        else:
+            raise ValueError(f"Invalid action type: {type(action)}")
+
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return self._state, reward, terminated, False, {}

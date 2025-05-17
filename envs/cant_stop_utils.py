@@ -115,7 +115,7 @@ class ProgressAction:
         return cls(d1 + d2, d3 + d4), cls(d1 + d3, d2 + d4), cls(d1 + d4, d2 + d3)
 
     def __repr__(self):
-        return f"ProgressAction({self.smaller}, {self.larger})"
+        return f"ProgressAction({self.smaller}, {self.larger})" if self.smaller != -1 else f"ProgressAction({self.larger})"
 
     def __eq__(self, other):
         if other is None: return False
@@ -150,6 +150,7 @@ class CantStopState:
                  saved_steps_remaining,
                  active_steps_remaining,
                  current_action: CantStopActionType):
+        self._num_turns = 0
         self._column_limits = np.array([3,5,7,9,11,13,11,9,7,5,3])
         self._saved_steps_remaining: np.ndarray = saved_steps_remaining.astype(int)
         self._active_steps_remaining: np.ndarray = active_steps_remaining.astype(int)
@@ -187,55 +188,75 @@ class CantStopState:
     def is_complete(self):
         return np.sum(self._saved_steps_remaining == 0) >= 3
 
+    @property
+    def num_turns(self):
+        return self._num_turns
+
+    @property
+    def active_advances(self):
+        return self.saved_steps_remaining - self.active_steps_remaining
+
     #@property
     #def stop_reward(self):
     #    return np.sum(self._saved_steps_remaining - self._active_steps_remaining)
 
-    def compute_reward(self, action_performed: StopContinueAction, busted: bool=False):
-        if not isinstance(action_performed, CantStopAction): raise ValueError(f"action_performed type should be StopContinueAction, not {type(action_performed)}.")
-        if isinstance(action_performed, ProgressAction): return 0
+    def compute_reward(self, action_performed: CantStopAction, busted: bool=False):
+        # NOTE: DEPRECATED
+        if not isinstance(action_performed, CantStopAction):
+            raise ValueError(f"action_performed type should be StopContinueAction, not {type(action_performed)}.")
 
-        completed_mask = self.full_active_cols.astype(int) * 2
+        reward = 0
+        if isinstance(action_performed, ProgressAction):
+            if action_performed.smaller != -1:
+                reward += 1 / self.column_limits[action_performed.smaller]
+            reward += 1 / self.column_limits[action_performed.larger]
+            return reward
+
+        completed_mask = self.full_active_cols.astype(int) * 100
         if action_performed is StopContinueAction.STOP:
-            # subtract 3 because you are basically guaranteed to advance at least once in 3 different columns
-            return np.sum(completed_mask * self.column_limits + (self._saved_steps_remaining - self._active_steps_remaining).astype(int)) - 3
+            return np.sum((self._saved_steps_remaining - self._active_steps_remaining).astype(int))
         elif action_performed is StopContinueAction.CONTINUE:
             if busted: return -np.sum(completed_mask * (self._saved_steps_remaining - self._active_steps_remaining))
             return -1
         else:
             raise ValueError(f"action_performed is of incompatible form {action_performed}.")
 
-    def perform_continue(self):
-        if isinstance(self.current_action, StopContinueChoice):
-            dice_rolls = np.random.choice(6, size=(4,)).tolist()
-            all_progressions = ProgressAction.from_dice_combinations(*dice_rolls)
+    def perform_continue(self) -> bool:
+        """
 
-            possible_advances = []
-            for p in all_progressions:
-                possible_advances.extend(p.split(self._saved_steps_remaining, self._active_steps_remaining))
-
-            if not possible_advances:
-                reward = self.compute_reward(StopContinueAction.CONTINUE, True)
-                self._active_steps_remaining = self._saved_steps_remaining.copy()
-                self._current_action = StopContinueChoice()
-            else:
-                reward = -1
-                self._current_action = ProgressActionSet(possible_advances)
-
-            return reward
-        else:
+        :return:
+        """
+        if not isinstance(self.current_action, StopContinueChoice):
             raise Exception("You cannot roll the dice again while selecting a combination.")
 
-    def perform_stop(self) -> tuple[float, bool]:
+        busted = False
+        dice_rolls = np.random.choice(6, size=(4,)).tolist()
+        all_progressions = ProgressAction.from_dice_combinations(*dice_rolls)
+
+        possible_advances = []
+        for p in all_progressions:
+            possible_advances.extend(p.split(self._saved_steps_remaining, self._active_steps_remaining))
+
+        if not possible_advances:
+            self._num_turns += 1
+            self._active_steps_remaining = self._saved_steps_remaining.copy()
+            self._current_action = StopContinueChoice()
+        else:
+            self._current_action = ProgressActionSet(possible_advances)
+            busted = True
+        return busted
+
+    def perform_stop(self) -> bool:
         if not isinstance(self.current_action, StopContinueChoice):
             raise Exception("You cannot stop while selecting a combination.")
-        reward = self.compute_reward(StopContinueAction.STOP)
+
+        self._num_turns += 1
         completed = False
         self._saved_steps_remaining = self._active_steps_remaining.copy()
         if self.is_complete:
             completed = True
             self._current_action = None
-        return reward, completed
+        return completed
 
 
     def perform_progression(self, progression: ProgressAction):
