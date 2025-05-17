@@ -177,7 +177,7 @@ class CantStopState:
 
     @property
     def full_active_cols(self):
-        return self._active_steps_remaining == 0
+        return (self._active_steps_remaining == 0) & self.active_cols
 
     @property
     def active_cols(self):
@@ -198,7 +198,7 @@ class CantStopState:
         completed_mask = self.full_active_cols.astype(int) * 2
         if action_performed is StopContinueAction.STOP:
             # subtract 3 because you are basically guaranteed to advance at least once in 3 different columns
-            return np.sum(completed_mask * (self._saved_steps_remaining - self._active_steps_remaining).astype(int)) - 3
+            return np.sum(completed_mask * self.column_limits + (self._saved_steps_remaining - self._active_steps_remaining).astype(int)) - 3
         elif action_performed is StopContinueAction.CONTINUE:
             if busted: return -np.sum(completed_mask * (self._saved_steps_remaining - self._active_steps_remaining))
             return -1
