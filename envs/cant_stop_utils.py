@@ -36,6 +36,9 @@ class ProgressAction:
     def larger(self):
         return self._larger
 
+    def copy(self):
+        return ProgressAction(self.smaller, self.larger)
+
     def encode(self) -> int:
         return (self.smaller + 1) * (22 - self.smaller) // 2 + self.larger
 

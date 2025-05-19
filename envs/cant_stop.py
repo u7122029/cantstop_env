@@ -171,41 +171,6 @@ class CantStopEnv(gym.Env):
         else:  # rgb_array
             return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
 
-    # def step(self, action: CantStopAction) -> tuple[Optional[CantStopState], SupportsFloat, bool, bool, dict[str, Any]]:
-    #     reward = 0
-    #     if isinstance(self._state.current_action, StopContinueChoice):
-    #         if action == StopContinueAction.CONTINUE:
-    #             bust_reward = -np.sum(self._state.active_advances) * 3.0
-    #             busted = self._state.perform_continue()
-    #             if busted:
-    #                 reward = bust_reward
-    #
-    #             if self.render_mode == "human":
-    #                 self._render_frame()
-    #             return self._state, reward, False, False, {}
-    #
-    #         elif action == StopContinueAction.STOP:
-    #             reward += (np.sum(self._state.active_advances) * 2.0 +
-    #                        np.sum(self._state.full_active_cols.astype(float)) * (1 - self._state.num_turns / self.max_turns) * 20.0)
-    #             completed = self._state.perform_stop()
-    #
-    #             if completed:
-    #                 reward += 100 * (1 - self._state.num_turns / self.max_turns)
-    #
-    #             if self.render_mode == "human":
-    #                 self._render_frame()
-    #             return self._state, reward, completed, False, {}
-    #
-    #     elif isinstance(self._state.current_action, ProgressActionSet):
-    #         self._state.perform_progression(action)
-    #         reward += (1 / self._state.column_limits[action.larger] +
-    #                    (0 if action.smaller == -1 else 1 / self._state.column_limits[action.smaller]))
-    #         if self.render_mode == "human":
-    #             self._render_frame()
-    #         return self._state, reward, False, False, {}
-    #
-    #     raise ValueError(f"Bad step inputted.")
-
     def step(self, action: CantStopAction) -> tuple[Optional[CantStopState], SupportsFloat, bool, bool, dict[str, Any]]:
         """
         Apply an action in the Cant Stop game environment and return the resulting state, reward, and flags.
