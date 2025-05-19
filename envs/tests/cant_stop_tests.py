@@ -39,7 +39,7 @@ class CantStopStateTests(unittest.TestCase):
         a2[0] = 1
         a2[2] = 1
         a2[12] = 1
-        self.assertTrue(np.all(state.construct_state() == np.concat([a1, a1, a2])))
+        self.assertTrue(np.all(state.to_np_embedding() == np.concat([a1, a1, a2])))
 
     def test_embedding2(self):
         state = CantStopState(np.array([3, 5, 7, 9, 11, 13, 11, 9, 7, 5, 3]),
@@ -47,7 +47,7 @@ class CantStopStateTests(unittest.TestCase):
                               StopContinueChoice())
 
         a1 = np.array([3, 5, 7, 9, 11, 13, 11, 9, 7, 5, 3])
-        self.assertTrue(np.all(state.construct_state() == np.concat([a1, a1])))
+        self.assertTrue(np.all(state.to_np_embedding() == np.concat([a1, a1])))
 
 class ProgressActionTests(unittest.TestCase):
     def test_act_encode_decode(self):

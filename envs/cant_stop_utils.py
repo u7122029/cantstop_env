@@ -196,7 +196,7 @@ class CantStopState:
     def active_advances(self):
         return self.saved_steps_remaining - self.active_steps_remaining
 
-    def construct_state(self):
+    def to_np_embedding(self):
         if self.current_action is None:
             return None
         base = np.concat([self.saved_steps_remaining, self.saved_steps_remaining])
