@@ -196,9 +196,13 @@ class CantStopState:
     def active_advances(self):
         return self.saved_steps_remaining - self.active_steps_remaining
 
-    #@property
-    #def stop_reward(self):
-    #    return np.sum(self._saved_steps_remaining - self._active_steps_remaining)
+    def construct_state(self):
+        if self.current_action is None:
+            return None
+        base = np.concat([self.saved_steps_remaining, self.saved_steps_remaining])
+        if isinstance(self.current_action, ProgressActionSet):
+            base = np.concat([base, self.current_action.as_encoded()])
+        return base
 
     def compute_reward(self, action_performed: CantStopAction, busted: bool=False):
         # NOTE: DEPRECATED

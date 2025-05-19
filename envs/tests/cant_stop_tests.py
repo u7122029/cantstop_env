@@ -7,7 +7,7 @@ from envs.cant_stop import CantStopObservation, CantStopEnv
 from envs.cant_stop_utils import ProgressAction, CantStopState, StopContinueChoice, ProgressActionSet
 
 
-class ObservationSpaceTests(unittest.TestCase):
+class CantStopObservationTests(unittest.TestCase):
     def test_observation_sample_30000(self):
         observation = CantStopObservation()
         for i in range(30000):
@@ -26,22 +26,28 @@ class ObservationSpaceTests(unittest.TestCase):
         x[2] = 0
         self.assertFalse(CantStopState(x, x, StopContinueChoice()) in observation)
 
-"""class ColumnReprTests(unittest.TestCase):
-    def test1(self):
-        bc = BoardColumn(6, 4, 1)
-        self.assertEqual(str(bc), "XXOOO_")
+class CantStopStateTests(unittest.TestCase):
+    def test_embedding1(self):
+        state = CantStopState(np.array([3,5,7,9,11,13,11,9,7,5,3]),
+                              np.array([3,5,7,9,11,13,11,9,7,5,3]),
+                              ProgressActionSet([ProgressAction(-1, 0),
+                                                 ProgressAction(-1, 2),
+                                                 ProgressAction(0, 1)]))
 
-    def test2(self):
-        bc = BoardColumn(14, 4, 4)
-        self.assertEqual(str(bc), "XXXXXXXXXX____")
+        a1 = np.array([3,5,7,9,11,13,11,9,7,5,3])
+        a2 = [0] * 77
+        a2[0] = 1
+        a2[2] = 1
+        a2[12] = 1
+        self.assertTrue(np.all(state.construct_state() == np.concat([a1, a1, a2])))
 
-    def test3(self):
-        bc = BoardColumn(8, 0, 0)
-        self.assertEqual(str(bc), "XXXXXXXX")
+    def test_embedding2(self):
+        state = CantStopState(np.array([3, 5, 7, 9, 11, 13, 11, 9, 7, 5, 3]),
+                              np.array([3, 5, 7, 9, 11, 13, 11, 9, 7, 5, 3]),
+                              StopContinueChoice())
 
-    def test4(self):
-        bc = BoardColumn(6, saved_steps_left=5, new_steps_left=0)
-        self.assertEqual(str(bc), "XOOOOO")"""
+        a1 = np.array([3, 5, 7, 9, 11, 13, 11, 9, 7, 5, 3])
+        self.assertTrue(np.all(state.construct_state() == np.concat([a1, a1])))
 
 class ProgressActionTests(unittest.TestCase):
     def test_act_encode_decode(self):
@@ -71,6 +77,7 @@ class ProgressActionTests(unittest.TestCase):
         active[0] = 0
         self.assertEqual([], act2.split(saved_steps, active))
         self.assertEqual([ProgressAction(-1, 2)], act1.split(saved_steps, active))
+
 
 class CantStopEnvTests(unittest.TestCase):
     def test_random_start_state(self):
@@ -141,5 +148,6 @@ class CantStopVisualisationTests(unittest.TestCase):
             if terminated:
                 print("done")
                 break
+
 if __name__ == '__main__':
     unittest.main()
