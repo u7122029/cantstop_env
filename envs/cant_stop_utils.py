@@ -5,7 +5,7 @@ import numpy as np
 from typing_extensions import TypeVar, Optional
 
 from tabulate import tabulate
-from abc import ABC, abstractproperty, abstractmethod
+from abc import ABC, abstractmethod
 
 
 class StopContinueAction(Enum):
@@ -38,14 +38,18 @@ class CantStopActionChoice(ABC):
     def __iter__(self):
         return iter(self._choices)
 
+    @abstractmethod
     def copy(self):
-        return CantStopActionChoice(self._name, [x for x in self._choices])
+        raise NotImplementedError()
+        #return CantStopActionChoice(self._name, [x for x in self._choices])
 
 
 class StopContinueChoice(CantStopActionChoice):
     def __init__(self):
         super().__init__("StopContinueChoice", [StopContinueAction.STOP, StopContinueAction.CONTINUE])
 
+    def copy(self):
+        return StopContinueChoice()
 
 class ProgressAction:
     def __init__(self, a, b=-1):
@@ -171,6 +175,9 @@ class ProgressActionChoice(CantStopActionChoice):
         :return:
         """
         raise NotImplementedError()
+
+    def copy(self):
+        return ProgressActionChoice([x for x in self.choices])
 
 CantStopAction = ProgressAction | StopContinueAction
 
