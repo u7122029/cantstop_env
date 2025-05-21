@@ -20,12 +20,17 @@ class StopContinueAction(Enum):
         return self.__repr__()
 
 class CantStopActionChoice(ABC):
-    def __init__(self, choices):
+    def __init__(self, name, choices):
+        self._name = name
         self._choices = frozenset(choices)
 
     @property
     def choices(self):
         return self._choices
+
+    @property
+    def name(self):
+        return self._name
 
     def __contains__(self, item):
         return item in self._choices
@@ -34,12 +39,12 @@ class CantStopActionChoice(ABC):
         return iter(self._choices)
 
     def copy(self):
-        return CantStopActionChoice([x for x in self._choices])
+        return CantStopActionChoice(self._name.copy(), [x for x in self._choices])
 
 
 class StopContinueChoice(CantStopActionChoice):
     def __init__(self):
-        super().__init__([StopContinueAction.STOP, StopContinueAction.CONTINUE])
+        super().__init__("StopContinueChoice", [StopContinueAction.STOP, StopContinueAction.CONTINUE])
 
 
 class ProgressAction:
@@ -148,6 +153,9 @@ class ProgressAction:
         return hash((self.smaller, self.larger))
 
 class ProgressActionChoice(CantStopActionChoice):
+    def __init__(self, items):
+        super().__init__("ProgressActionChoice", items)
+
     def as_encoded(self):
         advances_encoded = np.zeros(77, dtype=int)
 
