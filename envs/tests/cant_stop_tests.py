@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 from envs.cant_stop import CantStopObservation, CantStopEnv
-from envs.cant_stop_utils import ProgressAction, CantStopState, StopContinueChoice, ProgressActionSet
+from envs.cant_stop_utils import ProgressAction, CantStopState, StopContinueChoice, ProgressActionChoice
 
 
 class CantStopObservationTests(unittest.TestCase):
@@ -30,9 +30,9 @@ class CantStopStateTests(unittest.TestCase):
     def test_embedding1(self):
         state = CantStopState(np.array([3,5,7,9,11,13,11,9,7,5,3]),
                               np.array([3,5,7,9,11,13,11,9,7,5,3]),
-                              ProgressActionSet([ProgressAction(-1, 0),
-                                                 ProgressAction(-1, 2),
-                                                 ProgressAction(0, 1)]))
+                              ProgressActionChoice([ProgressAction(-1, 0),
+                                                    ProgressAction(-1, 2),
+                                                    ProgressAction(0, 1)]))
 
         a1 = np.array([3,5,7,9,11,13,11,9,7,5,3])
         a2 = [0] * 77
@@ -114,27 +114,27 @@ class CantStopEnvTests(unittest.TestCase):
     def test_valid_state_1(self):
         state = CantStopState(np.array([3, 4, 1, 7, 10, 13, 3, 8, 3, 4, 1]),
                               np.array([3, 4, 0, 7, 10, 13, 3, 8, 2, 4, 1]),
-                              ProgressActionSet([ProgressAction(-1, 0), ProgressAction(3, 3), ProgressAction(-1, 6)]))
+                              ProgressActionChoice([ProgressAction(-1, 0), ProgressAction(3, 3), ProgressAction(-1, 6)]))
         self.assertTrue(state.is_well_formed())
 
     def test_valid_state_2(self):
         state = CantStopState(np.array([1, 4, 4, 3, 3, 7, 8, 3, 2, 2, 3]),
                               np.array([1, 4, 4, 3, 2, 7, 8, 2, 2, 2, 3]),
-                              ProgressActionSet({ProgressAction(-1, 9),
-                                                 ProgressAction(-1, 6),
-                                                 ProgressAction(-1, 2),
-                                                 ProgressAction(4, 7),
-                                                 ProgressAction(-1, 5)}))
+                              ProgressActionChoice({ProgressAction(-1, 9),
+                                                    ProgressAction(-1, 6),
+                                                    ProgressAction(-1, 2),
+                                                    ProgressAction(4, 7),
+                                                    ProgressAction(-1, 5)}))
         self.assertTrue(state.is_well_formed())
 
     def test_valid_state_3(self):
         state = CantStopState(np.array([2, 2, 0, 5, 9, 2, 6, 5, 5, 1, 0]),
                               np.array([1, 2, 0, 5, 9, 2, 6, 4, 5, 1, 0]),
-                              ProgressActionSet({ProgressAction(5, 5),
-                                                 ProgressAction(-1, 4),
-                                                 ProgressAction(-1, 1),
-                                                 ProgressAction(-1, 9),
-                                                 ProgressAction(-1, 6)}))
+                              ProgressActionChoice({ProgressAction(5, 5),
+                                                    ProgressAction(-1, 4),
+                                                    ProgressAction(-1, 1),
+                                                    ProgressAction(-1, 9),
+                                                    ProgressAction(-1, 6)}))
         self.assertTrue(state.is_well_formed())
 
 class CantStopVisualisationTests(unittest.TestCase):

@@ -6,7 +6,7 @@ import numpy as np
 import pygame
 from gymnasium import spaces
 from .cant_stop_utils import StopContinueAction, CantStopState, CantStopAction, \
-    StopContinueChoice, ProgressActionSet, ProgressAction
+    StopContinueChoice, ProgressActionChoice, ProgressAction
 
 
 class PlayerState(Enum):
@@ -207,7 +207,7 @@ class CantStopEnv(gym.Env):
             else:
                 raise ValueError("Invalid Stop/Continue action.")
 
-        elif isinstance(self._state.current_action, ProgressActionSet):
+        elif isinstance(self._state.current_action, ProgressActionChoice):
             # Apply the chosen progression action
             self._state.perform_progression(action)
 

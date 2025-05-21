@@ -5,6 +5,7 @@ import numpy as np
 from typing_extensions import TypeVar, Optional
 
 from tabulate import tabulate
+from abc import ABC, abstractproperty, abstractmethod
 
 
 class StopContinueAction(Enum):
@@ -18,10 +19,28 @@ class StopContinueAction(Enum):
     def __str__(self):
         return self.__repr__()
 
+class CantStopActionChoice(ABC):
+    def __init__(self, choices):
+        self._choices = frozenset(choices)
 
-class StopContinueChoice(set[StopContinueAction]):
+    @property
+    def choices(self):
+        return self._choices
+
+    def __contains__(self, item):
+        return item in self._choices
+
+    def __iter__(self):
+        return iter(self._choices)
+
+    def copy(self):
+        return CantStopActionChoice([x for x in self._choices])
+
+
+class StopContinueChoice(CantStopActionChoice):
     def __init__(self):
         super().__init__([StopContinueAction.STOP, StopContinueAction.CONTINUE])
+
 
 class ProgressAction:
     def __init__(self, a, b=-1):
@@ -128,7 +147,7 @@ class ProgressAction:
     def __hash__(self):
         return hash((self.smaller, self.larger))
 
-class ProgressActionSet(set[ProgressAction]):
+class ProgressActionChoice(CantStopActionChoice):
     def as_encoded(self):
         advances_encoded = np.zeros(77, dtype=int)
 
@@ -145,19 +164,18 @@ class ProgressActionSet(set[ProgressAction]):
         """
         raise NotImplementedError()
 
-CantStopActionType = ProgressActionSet | StopContinueChoice
 CantStopAction = ProgressAction | StopContinueAction
 
 class CantStopState:
     def __init__(self,
                  saved_steps_remaining,
                  active_steps_remaining,
-                 current_action: CantStopActionType):
+                 current_action: CantStopActionChoice):
         self._num_turns = 0
         self._column_limits = np.array([3,5,7,9,11,13,11,9,7,5,3])
         self._saved_steps_remaining: np.ndarray = saved_steps_remaining.astype(int)
         self._active_steps_remaining: np.ndarray = active_steps_remaining.astype(int)
-        self._current_action: Optional[CantStopActionType] = current_action
+        self._current_action: Optional[CantStopActionChoice] = current_action
 
     @property
     def saved_steps_remaining(self):
@@ -203,7 +221,7 @@ class CantStopState:
         if self.current_action is None:
             return None
         base = np.concat([self.saved_steps_remaining, self.saved_steps_remaining])
-        if isinstance(self.current_action, ProgressActionSet):
+        if isinstance(self.current_action, ProgressActionChoice):
             base = np.concat([base, self.current_action.as_encoded()])
         return base
 
@@ -249,7 +267,7 @@ class CantStopState:
             self._active_steps_remaining = self._saved_steps_remaining.copy()
             self._current_action = StopContinueChoice()
         else:
-            self._current_action = ProgressActionSet(possible_advances)
+            self._current_action = ProgressActionChoice(possible_advances)
             busted = True
         return busted
 
@@ -267,7 +285,7 @@ class CantStopState:
 
 
     def perform_progression(self, progression: ProgressAction):
-        if not isinstance(self._current_action, ProgressActionSet):
+        if not isinstance(self._current_action, ProgressActionChoice):
             raise Exception("Current action selection is not a set.")
 
         if progression not in self._current_action:
@@ -298,7 +316,7 @@ class CantStopState:
             return False
         if not isinstance(self._active_steps_remaining, np.ndarray):
             return False
-        if not isinstance(self._current_action, (type(None), CantStopActionType)):
+        if not isinstance(self._current_action, (type(None), CantStopActionChoice)):
             return False
 
         # Early check: bounds must hold
@@ -313,7 +331,7 @@ class CantStopState:
 
         # Action-specific validation
         action = self._current_action
-        if isinstance(action, ProgressActionSet):
+        if isinstance(action, ProgressActionChoice):
             active_cols = self.active_cols
             num_active_cols = np.count_nonzero(active_cols)
 
@@ -378,5 +396,5 @@ class CantStopState:
                              self._current_action.copy() if self._current_action is not None else None)
 
 if __name__ == "__main__":
-    print(isinstance(StopContinueAction.CONTINUE, StopContinueAction))
-    print(StopContinueAction.CONTINUE is StopContinueAction.CONTINUE)
+    print(StopContinueChoice())
+    print(ProgressActionChoice([ProgressAction(3, 3)]))
