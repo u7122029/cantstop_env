@@ -39,7 +39,7 @@ class CantStopActionChoice(ABC):
         return iter(self._choices)
 
     def copy(self):
-        return CantStopActionChoice(self._name.copy(), [x for x in self._choices])
+        return CantStopActionChoice(self._name, [x for x in self._choices])
 
 
 class StopContinueChoice(CantStopActionChoice):
