@@ -2,15 +2,32 @@ import math
 from enum import Enum
 
 import numpy as np
+from typing import Protocol, runtime_checkable
 from typing_extensions import TypeVar, Optional
 
 from tabulate import tabulate
 from abc import ABC, abstractmethod
 
+@runtime_checkable
+class CantStopAction(Protocol):
+    def encode(self) -> int:
+        raise NotImplementedError()
+
+    @staticmethod
+    def decode(idx):
+        raise NotImplementedError()
 
 class StopContinueAction(Enum):
     STOP = 0
     CONTINUE = 1
+
+    def encode(self):
+        return self.value
+
+    @staticmethod
+    def decode(idx):
+        lst = [StopContinueAction.STOP, StopContinueAction.CONTINUE]
+        return lst[idx]
 
     def __repr__(self):
         x = ["STOP", "CONTINUE"]
@@ -18,38 +35,6 @@ class StopContinueAction(Enum):
 
     def __str__(self):
         return self.__repr__()
-
-class CantStopActionChoice(ABC):
-    def __init__(self, name, choices):
-        self._name = name
-        self._choices = frozenset(choices)
-
-    @property
-    def choices(self):
-        return self._choices
-
-    @property
-    def name(self):
-        return self._name
-
-    def __contains__(self, item):
-        return item in self._choices
-
-    def __iter__(self):
-        return iter(self._choices)
-
-    @abstractmethod
-    def copy(self):
-        raise NotImplementedError()
-        #return CantStopActionChoice(self._name, [x for x in self._choices])
-
-
-class StopContinueChoice(CantStopActionChoice):
-    def __init__(self):
-        super().__init__("StopContinueChoice", [StopContinueAction.STOP, StopContinueAction.CONTINUE])
-
-    def copy(self):
-        return StopContinueChoice()
 
 class ProgressAction:
     def __init__(self, a, b=-1):
@@ -108,14 +93,14 @@ class ProgressAction:
             return 0 <= self.larger <= 10
         return 0 <= self.smaller <= self.larger <= 10
 
-    @classmethod
-    def decode(cls, encoded: int):
-        if encoded < 0:
-            raise ValueError("Invalid encoded value")
-        if encoded <= 10:
-            return cls(-1, encoded)
+    @staticmethod
+    def decode(idx: int):
+        if idx < 0:
+            raise ValueError("Invalid idx value")
+        if idx <= 10:
+            return ProgressAction(-1, idx)
 
-        e = encoded
+        e = idx
         sqrt_val = math.sqrt(617 - 8 * e)
         s_floor = int((23 - sqrt_val) // 2)
 
@@ -123,23 +108,23 @@ class ProgressAction:
         if 0 <= s_floor <= 10:
             base = (s_floor + 1) * (22 - s_floor) // 2
             if base + s_floor <= e <= base + 10:
-                return cls(s_floor, e - base)
+                return ProgressAction(s_floor, e - base)
 
         # Check s_floor - 1
         s_candidate = s_floor - 1
         if 0 <= s_candidate <= 10:
             base = (s_candidate + 1) * (22 - s_candidate) // 2
             if base + s_candidate <= e <= base + 10:
-                return cls(s_candidate, e - base)
+                return ProgressAction(s_candidate, e - base)
 
         # Check s_floor + 1
         s_candidate = s_floor + 1
         if 0 <= s_candidate <= 10:
             base = (s_candidate + 1) * (22 - s_candidate) // 2
             if base + s_candidate <= e <= base + 10:
-                return cls(s_candidate, e - base)
+                return ProgressAction(s_candidate, e - base)
 
-        raise ValueError("Invalid encoded value")
+        raise ValueError("Invalid idx value")
 
     @classmethod
     def from_dice_combinations(cls, d1, d2, d3, d4):
@@ -155,6 +140,39 @@ class ProgressAction:
 
     def __hash__(self):
         return hash((self.smaller, self.larger))
+
+class CantStopActionChoice(ABC):
+    def __init__(self, name, choices):
+        self._name = name
+        self._choices = frozenset(choices)
+
+    @property
+    def choices(self):
+        return self._choices
+
+    @property
+    def name(self):
+        return self._name
+
+    def __contains__(self, item):
+        return item in self._choices
+
+    def __iter__(self):
+        return iter(self._choices)
+
+    @abstractmethod
+    def copy(self):
+        raise NotImplementedError()
+        #return CantStopActionChoice(self._name, [x for x in self._choices])
+
+
+class StopContinueChoice(CantStopActionChoice):
+    def __init__(self):
+        super().__init__("StopContinueChoice", [StopContinueAction.STOP, StopContinueAction.CONTINUE])
+
+    def copy(self):
+        return StopContinueChoice()
+
 
 class ProgressActionChoice(CantStopActionChoice):
     def __init__(self, items):
@@ -178,8 +196,6 @@ class ProgressActionChoice(CantStopActionChoice):
 
     def copy(self):
         return ProgressActionChoice([x for x in self.choices])
-
-CantStopAction = ProgressAction | StopContinueAction
 
 class CantStopState:
     def __init__(self,
@@ -410,6 +426,10 @@ class CantStopState:
                              self._active_steps_remaining.copy(),
                              self._current_action.copy() if self._current_action is not None else None)
 
+def process_action(action: CantStopAction):
+    print(action)
+    #print(f"Encoded: {action.encode()}")
+    #print(f"Decoded: {action.decode(action.encode())}")
+
 if __name__ == "__main__":
-    print(StopContinueChoice())
-    print(ProgressActionChoice([ProgressAction(3, 3)]))
+    process_action(1)#StopContinueAction.STOP)
